@@ -59,6 +59,19 @@ class RoiDrawOptions(QtWidgets.QMainWindow):
         self.ui._toolbar.colour.connect(self.ui.left_label.update_colour)
         self.setCentralWidget(self.ui)
         self.addToolBar(self.ui.build_toolbar())
+
+    #Code for dicom toolbar events
+    def onZoomInClicked(self):
+        """Handles the event of the zoom in button"""
+        self.ui.dicom_viewer.zoom *= 1.05
+        self.ui.dicom_viewer.update_view(zoom_change=True)
+        self.ui.apply_zoom()
+    
+    def onZoomOutClicked(self):
+        """Handles the event of the zoom out button"""
+        self.ui.dicom_viewer.zoom /= 1.05
+        self.ui.dicom_viewer.update_view(zoom_change=True)
+        self.ui.apply_zoom()
         
 
 

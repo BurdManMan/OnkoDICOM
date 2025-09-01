@@ -37,22 +37,30 @@ class CanvasLabel(QtWidgets.QLabel):
         self.copy_roi_window = None # becomes the new window for copy roit
         self.current_tool = Tool.DRAW
         self.ds_is_active = False  #used to tell if undelying dicom file matches the above layer, this variable lets the pixel lock know if it needs to run
-        self.slice_num = 0 #this variable represents the current viewable slice
+         #this variable represents the current viewable slice
         self.transect_pixmap_copy = None #Becomes a pixmap
         self.patient_dict_container = PatientDictContainer()
         self.dicom_slices = dicom_slice_viewer
         self.dicom_data = self.patient_dict_container.dataset
         self.dicom_slices.slider.valueChanged.connect(self.change_layout_bool)
         self.dicom_slices.slider.valueChanged.connect(self.update_pixmap_layer)
-
+        self.slice_num = self.dicom_slices.slider.value()
+        
         self.number_of_slices = self.dicom_slices.slider.maximum() #number of image slices
         # sets the canvas and the mouse tracking
         #genorates a pixmap to draw on then copys that pixmap into an array an equal size of the dicom images
         self.gen_pix_map = QPixmap(512, 512)
         self.gen_pix_map.fill(Qt.transparent)
         self.canvas = [] #An array that holds all of the slices used in the viewer
+
+        #zoom variables
+        self.base_canvas = []
+        self.scale_factor = 1.0
+        self.setScaledContents(False)
+
         for _ in range(self.number_of_slices):
             self.canvas.append(self.gen_pix_map.copy())
+            self.base_canvas.append(self.gen_pix_map.copy())
         self.setPixmap(self.canvas[self.slice_num]) #sets the current pixmap to the first slice
         self.setMouseTracking(True)
 
@@ -65,7 +73,7 @@ class CanvasLabel(QtWidgets.QLabel):
         self.pixel_lock = 0       # will become a np.bool_ array [H,W]
         self.transect_array = []  #Holds the two values used to determain the transect array
         self.pixel_array = 0     #A numpy array that holds the pixel data of a slice
-        self.mid_point = []   #When drawing will hold the points of each stroke, then creates an average and caculates that average
+        self.mid_point = []   #When drawing will hold the points of each stroke, then creates an average and calculate that average
 
         # stores the pixmaps after each draw to allow for an undo button
         self.draw_history = [self.canvas.copy()]
@@ -88,6 +96,8 @@ class CanvasLabel(QtWidgets.QLabel):
         self.min_range = 0
         self.max_range = 6000
 
+        self.has_been_draw_on = {int} #Used to track the slices that have been draw on
+
     def set_tool(self, tool_num):
         """Sets the tool"""
         self.current_tool = Tool(tool_num)
@@ -100,6 +110,7 @@ class CanvasLabel(QtWidgets.QLabel):
         self.last_point = event.position().toPoint()
         self.first_point = event.position().toPoint()
         if self.current_tool is Tool.FILL:
+            self.check_if_drawn(self.slice_num)
             self.pixel_fill((self.first_point.x(), self.first_point.y()))
             self.draw_history.append(self.canvas[self.slice_num].copy())  # CHANGED: record after enforcement
             self.redo_history.clear()
@@ -109,6 +120,7 @@ class CanvasLabel(QtWidgets.QLabel):
 
     def mouseMoveEvent(self, event: QMouseEvent):
         if event.buttons() and (self.current_tool is Tool.DRAW or self.current_tool is Tool.CIRCLE):
+            self.check_if_drawn(self.slice_num)
             painter = QPainter(self.canvas[self.slice_num])
             current_point = event.position().toPoint()
             self.mid_point.append(current_point)
@@ -161,7 +173,10 @@ class CanvasLabel(QtWidgets.QLabel):
             self.transect_window(point_values)
         self.last_point = None
 
-
+    def check_if_drawn(self, current_slice):
+        """Checks if the pixmap has been drawn on, if yes then it gets added to the slice"""
+        if current_slice not in self.has_been_draw_on:
+                self.has_been_draw_on.add(current_slice)
     #Chat gpt redition of breseham algorithm
     def _iter_line_pixels(self, x0: int, y0: int, x1: int, y1: int):
         """Bresenham integer line iterator: yields (x, y) for every pixel crossed."""
@@ -226,9 +241,11 @@ class CanvasLabel(QtWidgets.QLabel):
         if up_or_down:
             self.canvas[self.slice_num+1] = self.canvas[self.slice_num].copy()
             self.dicom_slices.slider.setValue(self.dicom_slices.slider.value() +1)
-        elif not up_or_down & self.slice_num > 1:
+            self.check_if_drawn(self.slice_num)
+        elif not up_or_down and self.slice_num > 1:
             self.canvas[self.slice_num-1] = self.canvas[self.slice_num].copy()
             self.dicom_slices.slider.setValue(self.dicom_slices.slider.value() -1)
+            self.check_if_drawn(self.slice_num)
         self.ds_is_active = False
     def erase_roi(self):
         """Erases everything on the current slide"""
@@ -244,13 +261,13 @@ class CanvasLabel(QtWidgets.QLabel):
         painter.drawLine(self.first_point, current_point)
         painter.end()
         self.setPixmap(self.canvas[self.slice_num])
-        ave = self.caculate_average_pixle()
+        ave = self.calculate_average_pixel()
         self.flood(ave)
         self.setPixmap(self.canvas[self.slice_num])
         # (history is now handled in mouseReleaseEvent after enforcement)
 
-    def caculate_average_pixle(self):
-        """Caculates the midpoint of the circle/drawing to allow the flood tool to work"""
+    def calculate_average_pixel(self):
+        """calculate the midpoint of the circle/drawing to allow the flood tool to work"""
         i = 1
         x = 0
         y = 0
@@ -280,7 +297,9 @@ class CanvasLabel(QtWidgets.QLabel):
         queue = deque([(x, y)])
         visited = {(x, y)}
         target_color = image.pixelColor(x, y)
-        direction = [(0,-1), (1,-1), (-1,0), (1,0), (-1,1), (0,1), (1,1)]
+        direction = [(-1, -1), (0, -1), (1, -1),
+                     (-1,  0),          (1,  0),
+                     (-1,  1), (0,  1), (1,  1)]
 
         while queue:
             x,y = queue.popleft()
@@ -308,7 +327,9 @@ class CanvasLabel(QtWidgets.QLabel):
         x, y = mid_p
         queue = deque([(x, y)])
         visited = {(x, y)}
-        direction = [(0,-1), (1,-1), (-1,0), (1,0), (-1,1), (0,1), (1,1)]
+        direction = [(-1, -1), (0, -1), (1, -1),
+                     (-1,  0),          (1,  0),
+                     (-1,  1), (0,  1), (1,  1)]
 
         while queue:
             x, y = queue.popleft()
@@ -342,7 +363,6 @@ class CanvasLabel(QtWidgets.QLabel):
 
     def lock_pixel(self):
         """Creates the lock values for the drawing images"""
-        # pixel_lock == True means "locked" (outside allowed HU)
         lock_mask = ~((self.pixel_array >= self.min_range) & (self.pixel_array <= self.max_range))
         self.pixel_lock = lock_mask
 
@@ -363,8 +383,6 @@ class CanvasLabel(QtWidgets.QLabel):
 
     #AI Vibe coded part
     # --------------- NEW: lock enforcement helpers ---------------
-
-
     def _draw_mask_bool(self) -> np.ndarray:
         """Alpha>0 where anything has been drawn on the canvas."""
         img = self.canvas[self.slice_num].toImage().convertToFormat(QImage.Format_ARGB32)
@@ -429,9 +447,9 @@ class CanvasLabel(QtWidgets.QLabel):
         p.end()
 
         self.setPixmap(self.canvas[self.slice_num])
-#end of AI Gen
+ #end of AI gen
 
-#This section contain all of the slots that communicate with methods in other files
+#This section contain all of the slots and connections that communicate with methods in other files
     def change_layout_bool(self):
         """Changes the values of ds_is_active to remind the drawer to reset the pixmap
         once the scroll loader changes value"""
@@ -446,15 +464,28 @@ class CanvasLabel(QtWidgets.QLabel):
     @Slot(int)
     def copy_rois_up(self,v):
         """Copys any pixmap onto the rois values selcted"""
-        i = self.slice_num
+        i = self.slice_num+1
+        holder = self.canvas[self.slice_num].copy()
         while v > i:
-            self.canvas[i] = self.canvas[self.slice_num]
+            self.canvas[i] = self.canvas[self.slice_num].copy()
+            self.set_pixel_layer(self.dicom_data[i])
+            self._enforce_lock_after_stroke()
+            self.check_if_drawn(i)
             i +=1
-
+        self.canvas[self.slice_num] = holder
+        self.setPixmap(self.canvas[self.slice_num])
+        self.ds_is_active = False
     @Slot(int)
     def copy_rois_down(self,v):
         """Copys any pixmap onto the rois values selcted"""
-        i = self.slice_num
+        i = self.slice_num-1
+        holder = self.canvas[self.slice_num].copy()
         while v < i:
-            self.canvas[i] = self.canvas[self.slice_num]
+            self.canvas[i] = self.canvas[self.slice_num].copy()
+            self.set_pixel_layer(self.dicom_data[i])
+            self._enforce_lock_after_stroke()
+            self.check_if_drawn(i)
             i -=1
+        self.canvas[self.slice_num] = holder
+        self.setPixmap(self.canvas[self.slice_num])
+        self.ds_is_active = False

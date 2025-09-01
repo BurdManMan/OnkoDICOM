@@ -1,4 +1,4 @@
-from PySide6 import QtWidgets
+from PySide6 import QtWidgets, QtGui
 from PySide6.QtGui import QPen, QKeyEvent
 from PySide6.QtCore import Qt
 from src.View.mainpage.DrawROIWindow.Toolbar import CutsomToolbar
@@ -48,7 +48,6 @@ class RoiInitialiser(QtWidgets.QWidget):
         self.canvas_labal = CanvasLabel(self.pen, self.dicom_viewer)
         self.units_box = UnitsBox(self, self.pen, self.canvas_labal)
         self.left_label = LeftPannel(self, self.pen, self.canvas_labal)
-        toolbar = CutsomToolbar(self,self.canvas_labal,self.left_label)
 
         #Drawing Widget
         drawing_widget = QtWidgets.QWidget()
@@ -91,8 +90,9 @@ class RoiInitialiser(QtWidgets.QWidget):
         print("slider sizeHint:", self.dicom_viewer.slider.sizeHint())
 
     def build_toolbar(self) -> QtWidgets.QToolBar:
+        """Creates and adds the toolbar to the ui"""
         return self._toolbar
-    
+
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key_Up:
             self.dicom_viewer.slider.setValue(self.dicom_viewer.slider.value() +1)
@@ -101,3 +101,14 @@ class RoiInitialiser(QtWidgets.QWidget):
             self.dicom_viewer.slider.setValue(self.dicom_viewer.slider.value() -1)
             self.canvas_labal.ds_is_active = False
         return super().keyPressEvent(event)
+
+
+    def apply_zoom(self):
+        factor = self.dicom_viewer.zoom
+        idx = self.dicom_viewer.slider.value()
+        base = self.canvas_labal.base_canvas[idx]     # keep an unscaled master!
+        scaled = base.transformed(QtGui.QTransform().scale(factor, factor),
+                                Qt.SmoothTransformation)
+        self.canvas_labal.canvas[idx] = scaled
+        self.canvas_labal.setPixmap(scaled)           # if CanvasLabel is a QLabel
+        self.canvas_labal.update()
