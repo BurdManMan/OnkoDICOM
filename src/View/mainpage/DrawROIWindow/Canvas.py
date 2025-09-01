@@ -11,7 +11,7 @@ from collections import deque
 from enum import Enum, auto
 from scipy import ndimage as ndi
 from PySide6 import QtWidgets
-from PySide6.QtGui import QPixmap, QImage, QMouseEvent, QPainter, QPen, QColor
+from PySide6.QtGui import QPixmap, QImage, QPainter, QPen, QColor
 from PySide6.QtCore import Qt, Slot
 import numpy as np
 from src.Model.PatientDictContainer import PatientDictContainer
@@ -26,10 +26,11 @@ class Tool(Enum):
     CIRCLE   = auto()
     TRANSECT = auto()
 
-class CanvasLabel(QtWidgets.QLabel):
+class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
     """Class for the drawing funnction, creates an invisable layer projected over a dicom image"""
     def __init__(self, pen: QPen, dicom_slice_viewer):
         super().__init__()
+        print("2")
         self.pen = pen #the pen object that is used to draw on the canvas, can be changed in other classes
         self.last_point = None #becomes a x,y point
         self.first_point = None #becomes a x,y point
@@ -56,13 +57,12 @@ class CanvasLabel(QtWidgets.QLabel):
         #zoom variables
         self.base_canvas = []
         self.scale_factor = 1.0
-        self.setScaledContents(False)
 
         for _ in range(self.number_of_slices):
             self.canvas.append(self.gen_pix_map.copy())
             self.base_canvas.append(self.gen_pix_map.copy())
         self.setPixmap(self.canvas[self.slice_num]) #sets the current pixmap to the first slice
-        self.setMouseTracking(True)
+        self.setAcceptHoverEvents(True)
 
         # default pen width
         self.pen.setWidth(12)
@@ -102,7 +102,7 @@ class CanvasLabel(QtWidgets.QLabel):
         """Sets the tool"""
         self.current_tool = Tool(tool_num)
 
-    def mousePressEvent(self, event: QMouseEvent):
+    def mousePressEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent):
         """Controls the mouse movements"""
         if not self.ds_is_active:
             self.set_pixel_layer(self.dicom_data[self.dicom_slices.slider.value()])
@@ -118,16 +118,20 @@ class CanvasLabel(QtWidgets.QLabel):
         if self.current_tool is Tool.TRANSECT:
             self.transect_pixmap_copy = self.canvas[self.slice_num].copy()
 
-    def mouseMoveEvent(self, event: QMouseEvent):
+    def mouseMoveEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent):
         if event.buttons() and (self.current_tool is Tool.DRAW or self.current_tool is Tool.CIRCLE):
             self.check_if_drawn(self.slice_num)
             painter = QPainter(self.canvas[self.slice_num])
             current_point = event.position().toPoint()
+            
+            scene_pt = self.dicom_slices.mapToParent(event.pos())
+            img_ptf  = self.dicom_slices.mapFromParent(scene_pt)
+            img_pt   = img_ptf.toPointF()
             self.mid_point.append(current_point)
             painter.setCompositionMode(QPainter.CompositionMode_Source)
             painter.setPen(self.pen)
             if self.last_point:
-                painter.drawLine(self.last_point, current_point)
+                painter.drawLine(self.last_point, img_pt)
             painter.end()
 
             self.setPixmap(self.canvas[self.slice_num])
@@ -144,7 +148,7 @@ class CanvasLabel(QtWidgets.QLabel):
             if self.last_point:
                 self.canvas[self.slice_num].fill(Qt.transparent)
 
-    def mouseReleaseEvent(self, event: QMouseEvent):
+    def mouseReleaseEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent):
         drew_something = False
 
         if self.current_tool is Tool.CIRCLE:
@@ -222,7 +226,6 @@ class CanvasLabel(QtWidgets.QLabel):
         for x, y in self._iter_line_pixels(p1_x, p1_y, p2_x, p2_y):
             if 0 <= x < w and 0 <= y < h:
                 transected_values.append(self.pixel_array[y, x])
-
 
         self.t_window = TransectWindow(transected_values)
         self.t_window.show()

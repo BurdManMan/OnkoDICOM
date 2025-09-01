@@ -8,7 +8,6 @@ from src.View.mainpage.DrawROIWindow.Units_Box import UnitsBox
 from src.View.mainpage.DicomAxialView import DicomAxialView
 from src.View.StyleSheetReader import StyleSheetReader
 
-
 #Sourcery.ai Is this true
 class RoiInitialiser(QtWidgets.QWidget):
     """Class to hold the draw ROI features"""
@@ -29,9 +28,18 @@ class RoiInitialiser(QtWidgets.QWidget):
         self.pen.setColor("blue")
 
         # Initalises the calsses
-        self.dicom_viewer = DicomAxialView(is_four_view=True)
-        
+        self.dicom_viewer = DicomAxialView()
+        self.scene = QtWidgets.QGraphicsScene()
         #remove the scroll bar and add it to its own widget
+        self.canvas_labal = CanvasLabel(self.pen, self.dicom_viewer)
+        self.image_item = QtWidgets.QGraphicsPixmapItem(self.dicom_viewer)
+        self.overlay_pixmap = QtGui.QPixmap(self.dicom_viewer.size())
+        self.overlay_item = self.canvas_labal(self.overlay_pixmap, self.pen)
+        self.scene.addItem(self.image_item)
+        self.scene.addItem(self.overlay_item)
+
+        self.view = QtWidgets.QGraphicsView(self.scene)
+
         self.dicom_viewer.layout().removeWidget(self.dicom_viewer.slider)
         self.dicom_scroller = QtWidgets.QWidget()
         self.dicom_viewer.slider.setParent(self.dicom_scroller)
@@ -43,26 +51,9 @@ class RoiInitialiser(QtWidgets.QWidget):
         # 4) reparent + add the slider to the scroller's layout
         scroller_layout.addWidget(self.dicom_viewer.slider)
         self.dicom_viewer.slider.show()
-
         
-        self.canvas_labal = CanvasLabel(self.pen, self.dicom_viewer)
         self.units_box = UnitsBox(self, self.pen, self.canvas_labal)
         self.left_label = LeftPannel(self, self.pen, self.canvas_labal)
-
-        #Drawing Widget
-        drawing_widget = QtWidgets.QWidget()
-        drawing_widget.setFixedSize(512,512)
-
-        self.dicom_viewer.setParent(drawing_widget)
-        self.dicom_viewer.setGeometry(0,0,512,512)
-      
-        self.canvas_labal.setParent(drawing_widget)
-        self.canvas_labal.setGeometry(0,0,512,512)
-        self.canvas_labal.raise_()
-
-        if self.dicom_viewer.layout():
-            self.dicom_viewer.layout().setContentsMargins(0, 0, 0, 0)
-            self.dicom_viewer.layout().setSpacing(0)
 
         # Creates a layout for the tools to fit inside
         tools_layout = QtWidgets.QVBoxLayout()
@@ -81,7 +72,7 @@ class RoiInitialiser(QtWidgets.QWidget):
         main.setSpacing(8)
         main.addWidget(tools_container)
         main.addWidget(self.dicom_scroller)
-        main.addWidget(drawing_widget, 1)
+        main.addWidget(self.view, 1)
 
         # keep a toolbar factory if you like (QMainWindow will add it)
         self._toolbar = CutsomToolbar(self, self.canvas_labal, self.left_label)
@@ -107,8 +98,8 @@ class RoiInitialiser(QtWidgets.QWidget):
         factor = self.dicom_viewer.zoom
         idx = self.dicom_viewer.slider.value()
         base = self.canvas_labal.base_canvas[idx]     # keep an unscaled master!
-        scaled = base.transformed(QtGui.QTransform().scale(factor, factor),
-                                Qt.SmoothTransformation)
+        scaled = base.scaled(base.size() * factor,Qt.KeepAspectRatio,
+                                            Qt.SmoothTransformation)
         self.canvas_labal.canvas[idx] = scaled
         self.canvas_labal.setPixmap(scaled)           # if CanvasLabel is a QLabel
         self.canvas_labal.update()

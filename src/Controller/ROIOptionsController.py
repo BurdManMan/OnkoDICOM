@@ -72,7 +72,7 @@ class RoiDrawOptions(QtWidgets.QMainWindow):
         self.ui.dicom_viewer.zoom /= 1.05
         self.ui.dicom_viewer.update_view(zoom_change=True)
         self.ui.apply_zoom()
-        
+
 
 
 class ROIDrawOption:
