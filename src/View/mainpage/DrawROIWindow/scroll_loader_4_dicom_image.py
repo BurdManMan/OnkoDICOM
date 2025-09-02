@@ -5,6 +5,5 @@ class Scroll_Wheel(QSlider):
     def __init__(self, dicom_image_set = None):
         super().__init__()
         self.dicom_image_set = dicom_image_set
-        self.setMaximum(len(self.dicom_image_set)-1)
-        self.valueChanged.connect(self.value_changes)
+        self.setMaximum(len(self.dicom_image_set))
         self.setValue(int(len(self.dicom_image_set)/2))

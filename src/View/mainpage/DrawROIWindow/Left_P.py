@@ -127,6 +127,7 @@ class LeftPannel(QtWidgets.QWidget):
 
     def fill_tool(self):
         """Fucntion for the fill tool"""
+        self.canvas_label.setCursor(Qt.ArrowCursor)
         self.canvas_label.pen.setColor(self.last_colour)
         self.canvas_label.set_tool(2)
 
@@ -171,3 +172,8 @@ class LeftPannel(QtWidgets.QWidget):
         """Used to update the colour of the cursor to refect the users choices"""
         self.last_colour = v # LF (\n)
         # End-of-file (EOF)
+
+    @Slot(int)
+    def update_opasity(self, v):
+        """Updates the alpha value"""
+        self.last_colour.setAlpha(v)

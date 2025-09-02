@@ -6,8 +6,6 @@ from src.View.mainpage.DrawROIWindow.Left_P import LeftPannel
 from src.View.mainpage.DrawROIWindow.Canvas import CanvasLabel
 from src.View.mainpage.DrawROIWindow.Units_Box import UnitsBox
 from src.View.mainpage.DicomAxialView import DicomAxialView
-from src.View.StyleSheetReader import StyleSheetReader
-from src.View.mainpage.DicomView import CustomGraphicsView
 from src.Model.PatientDictContainer import PatientDictContainer
 from src.View.mainpage.DrawROIWindow.scroll_loader_4_dicom_image import Scroll_Wheel
 
