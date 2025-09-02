@@ -13,11 +13,11 @@ from matplotlib.backend_bases import MouseEvent
 import src.constants as constant
 try:
     from src.Model.Anon import anonymize
-    FEATURE_TOGGLE_PSEUDONYMISE = True # need to have declared either way
+    FEATURE_TOGGLE_PSEUDONYMISE = True  # need to have declared either way
 except ImportError as ePymedphysImportFailed:
     FEATURE_TOGGLE_PSEUDONYMISE = False
     logging.error(ePymedphysImportFailed)
-    
+
 from src.Model.PatientDictContainer import PatientDictContainer
 from src.Model.Transform import linear_transform
 from src.Controller.PathHandler import data_path
@@ -83,8 +83,8 @@ def calculate_years(year1, year2):
         year2.toPython(), year1.toPython()).months
     difference_in_days = relativedelta(year2.toPython(), year1.toPython()).days
     value = difference_years \
-            + (difference_months / 12) \
-            + (difference_in_days / 365)
+        + (difference_months / 12) \
+        + (difference_in_days / 365)
     return "%.2f" % value
 
 
@@ -295,8 +295,8 @@ class Transect(QtWidgets.QGraphicsScene):
                 else:
                     self._line.set_data(x, y)
                 if len(x) >= 2:
-                    self.leftLine.set_xdata(x[0])
-                    self.rightLine.set_xdata(x[1])
+                    self.leftLine.set_xdata([x[0]])
+                    self.rightLine.set_xdata([x[1]])
                     self.thresholds[0] = x[0]
                     self.thresholds[1] = x[1]
 
