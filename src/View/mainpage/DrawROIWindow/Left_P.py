@@ -12,7 +12,6 @@ class LeftPannel(QtWidgets.QWidget):
         self.parent = parent
         self.pen = pen
         self.last_colour = QColor("blue")
-        print("3")
         self.set_layout()
 
     def set_layout(self):

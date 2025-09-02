@@ -1,4 +1,4 @@
-from PySide6 import QtWidgets, QtGui
+from PySide6 import QtWidgets, QtGui, QtCore
 from PySide6.QtGui import QPen, QKeyEvent
 from PySide6.QtCore import Qt
 from src.View.mainpage.DrawROIWindow.Toolbar import CutsomToolbar
@@ -23,7 +23,6 @@ class RoiInitialiser(QtWidgets.QWidget):
         self.get_pixmaps()
         
         self.setWindowTitle("ROI Prototype")
-        print("1")
 
         # Temporary hard coded directory path
         self.last_point = None
@@ -42,8 +41,6 @@ class RoiInitialiser(QtWidgets.QWidget):
 
         # 1) Scene on the view
         self.scene = QtWidgets.QGraphicsScene(self)
-        self.pleaseWork = CustomGraphicsView()
-        self.pleaseWork.setScene(self.scene)        # <-- REQUIRED
 
         # 2) Base image item
         self.image = self.display_pixmaps[self.scroller.value()]
@@ -51,9 +48,9 @@ class RoiInitialiser(QtWidgets.QWidget):
         self.image_item = QtWidgets.QGraphicsPixmapItem(self.image)
         self.image_item.setZValue(0)
         self.scene.addItem(self.image_item)
+        self.scene.setSceneRect(QtCore.QRectF(QtCore.QPointF(0,0), self.image.size()))
 
-        # 3) Overlay item (your CanvasLabel subclass of QGraphicsPixmapItem)
-        self.canvas_labal = CanvasLabel(self.pen,self.scroller)     # no QGraphicsView as parent
+        self.canvas_labal = CanvasLabel(self.pen,self.scroller)
         self.scene.addItem(self.canvas_labal)
         self.scene.setSceneRect(self.image_item.boundingRect())
 
@@ -67,23 +64,18 @@ class RoiInitialiser(QtWidgets.QWidget):
         self.canvas_labal.setZValue(10)
         self.canvas_labal.setAcceptedMouseButtons(Qt.LeftButton)
         self.canvas_labal.setShapeMode(QtWidgets.QGraphicsPixmapItem.BoundingRectShape)
-        self.canvas_labal.setAcceptedMouseButtons(Qt.LeftButton)
-        # (optional) self.canvas_labal.setAcceptHoverEvents(True)
-
-        # 6) View interaction settings (so the item gets the mouse)
-        self.pleaseWork.setDragMode(QtWidgets.QGraphicsView.NoDrag)  # while drawing
-        self.pleaseWork.setInteractive(True)
-        self.pleaseWork.setRenderHints(
-            QtGui.QPainter.Antialiasing | QtGui.QPainter.SmoothPixmapTransform
-        )
-
-         
+        self.canvas_labal.setAcceptedMouseButtons(Qt.LeftButton)        
 
         self.view = QtWidgets.QGraphicsView(self.scene)
         self.view.setDragMode(QtWidgets.QGraphicsView.NoDrag)
         self.view.setInteractive(True)
         self.view.setRenderHints(QtGui.QPainter.Antialiasing | QtGui.QPainter.SmoothPixmapTransform)
-        self.view.setFrameShape(QtWidgets.QFrame.NoFrame) 
+        self.view.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.view.setFrameShadow(QtWidgets.QFrame.Plain)
+        self.view.setLineWidth(0); self.view.setMidLineWidth(0)
+        self.view.viewport().setAutoFillBackground(False)
+        self.view.setBackgroundBrush(Qt.NoBrush)
+        self.scene.setBackgroundBrush(Qt.NoBrush)
         
 
         self.units_box = UnitsBox(self, self.pen, self.canvas_labal)
@@ -107,7 +99,7 @@ class RoiInitialiser(QtWidgets.QWidget):
         main.setSpacing(8)
         main.addWidget(tools_container)
         main.addWidget(self.scroller)
-        main.addWidget(self.view, 1)
+        main.addWidget(self.view)
 
         # keep a toolbar factory if you like (QMainWindow will add it)
         self._toolbar = CutsomToolbar(self, self.canvas_labal, self.left_label)
@@ -119,23 +111,18 @@ class RoiInitialiser(QtWidgets.QWidget):
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.key() == Qt.Key_Up:
-            self.dicom_viewer.slider.setValue(self.dicom_viewer.slider.value() +1)
+            self.scroller.setValue(self.dicom_viewer.slider.value() +1)
             self.canvas_labal.ds_is_active = False
         if event.key() == Qt.Key_Down:
-            self.dicom_viewer.slider.setValue(self.dicom_viewer.slider.value() -1)
+            self.scroller.setValue(self.dicom_viewer.slider.value() -1)
             self.canvas_labal.ds_is_active = False
         return super().keyPressEvent(event)
 
 
     def apply_zoom(self):
         factor = self.dicom_viewer.zoom
-        idx = self.dicom_viewer.slider.value()
-        base = self.canvas_labal.base_canvas[idx]     # keep an unscaled master!
-        scaled = base.scaled(base.size() * factor,Qt.KeepAspectRatio,
-                                            Qt.SmoothTransformation)
-        self.canvas_labal.canvas[idx] = scaled
-        self.canvas_labal.setPixmap(scaled)           # if CanvasLabel is a QLabel
-        self.canvas_labal.update()
+        self.view.setTransform(QtGui.QTransform().scale(factor, factor))
+        
 
     def get_pixmaps(self):
         """Gets all of the pixmap data and returns it"""

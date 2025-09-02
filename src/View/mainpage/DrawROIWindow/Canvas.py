@@ -9,7 +9,6 @@ mousePressEvent - handles the mouse press event.
 """
 from collections import deque
 from enum import Enum, auto
-from scipy import ndimage as ndi
 from PySide6 import QtWidgets
 from PySide6.QtGui import QPixmap, QImage, QPainter, QPen, QColor
 from PySide6.QtCore import Qt, Slot
@@ -28,9 +27,8 @@ class Tool(Enum):
 
 class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
     """Class for the drawing funnction, creates an invisable layer projected over a dicom image"""
-    def __init__(self, pen: QPen, max_slice_number):
+    def __init__(self, pen: QPen, slider):
         super().__init__()
-        print("2")
         self.pen = pen #the pen object that is used to draw on the canvas, can be changed in other classes
         self.last_point = None #becomes a x,y point
         self.first_point = None #becomes a x,y point
@@ -41,7 +39,7 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
          #this variable represents the current viewable slice
         self.transect_pixmap_copy = None #Becomes a pixmap
         self.patient_dict_container = PatientDictContainer()
-        self.dicom_slider =  max_slice_number #change in future
+        self.dicom_slider =  slider #change in future
         self.dicom_data = self.patient_dict_container.dataset
         self.dicom_slider.valueChanged.connect(self.change_layout_bool)
         self.dicom_slider.valueChanged.connect(self.update_pixmap_layer)
@@ -97,7 +95,6 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
         self.max_range = 6000
 
         self.has_been_draw_on = {int} #Used to track the slices that have been draw on
-        print("appes")
 
     def set_tool(self, tool_num):
         """Sets the tool"""
@@ -105,7 +102,6 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
 
     def mousePressEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent):
         if event.button() == Qt.LeftButton:
-            print("ahhhhhhhh")
             if not self.ds_is_active:
                 # activate once using the current slice’s pixel layer
                 self.set_pixel_layer(self.dicom_data[self.dicom_slider.value()])
