@@ -28,7 +28,7 @@ class Tool(Enum):
 
 class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
     """Class for the drawing funnction, creates an invisable layer projected over a dicom image"""
-    def __init__(self, pen: QPen, dicom_slice_viewer):
+    def __init__(self, pen: QPen, max_slice_number):
         super().__init__()
         print("2")
         self.pen = pen #the pen object that is used to draw on the canvas, can be changed in other classes
@@ -41,13 +41,12 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
          #this variable represents the current viewable slice
         self.transect_pixmap_copy = None #Becomes a pixmap
         self.patient_dict_container = PatientDictContainer()
-        self.dicom_slices = dicom_slice_viewer
+        self.dicom_slider =  max_slice_number #change in future
         self.dicom_data = self.patient_dict_container.dataset
-        self.dicom_slices.slider.valueChanged.connect(self.change_layout_bool)
-        self.dicom_slices.slider.valueChanged.connect(self.update_pixmap_layer)
-        self.slice_num = self.dicom_slices.slider.value()
-        
-        self.number_of_slices = self.dicom_slices.slider.maximum() #number of image slices
+        self.dicom_slider.valueChanged.connect(self.change_layout_bool)
+        self.dicom_slider.valueChanged.connect(self.update_pixmap_layer)
+        self.slice_num = 94 #must change
+        self.number_of_slices = self.dicom_slider.maximum() #number of image slices
         # sets the canvas and the mouse tracking
         #genorates a pixmap to draw on then copys that pixmap into an array an equal size of the dicom images
         self.gen_pix_map = QPixmap(512, 512)
@@ -63,6 +62,7 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
             self.base_canvas.append(self.gen_pix_map.copy())
         self.setPixmap(self.canvas[self.slice_num]) #sets the current pixmap to the first slice
         self.setAcceptHoverEvents(True)
+        self.setAcceptedMouseButtons(Qt.LeftButton)
 
         # default pen width
         self.pen.setWidth(12)
@@ -97,62 +97,88 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
         self.max_range = 6000
 
         self.has_been_draw_on = {int} #Used to track the slices that have been draw on
+        print("appes")
 
     def set_tool(self, tool_num):
         """Sets the tool"""
         self.current_tool = Tool(tool_num)
 
     def mousePressEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent):
-        """Controls the mouse movements"""
-        if not self.ds_is_active:
-            self.set_pixel_layer(self.dicom_data[self.dicom_slices.slider.value()])
-            self.ds_is_active = True
-        self.last_point = event.position().toPoint()
-        self.first_point = event.position().toPoint()
-        if self.current_tool is Tool.FILL:
+        if event.button() == Qt.LeftButton:
+            print("ahhhhhhhh")
+            if not self.ds_is_active:
+                # activate once using the current slice’s pixel layer
+                self.set_pixel_layer(self.dicom_data[self.dicom_slider.value()])
+                self.ds_is_active = True
+
+            # keep everything in *item coordinates* (pixmap pixel space)
+            self.slice_num = self.dicom_slider.value()
             self.check_if_drawn(self.slice_num)
-            self.pixel_fill((self.first_point.x(), self.first_point.y()))
-            self.draw_history.append(self.canvas[self.slice_num].copy())  # CHANGED: record after enforcement
-            self.redo_history.clear()
-            self.setPixmap(self.canvas[self.slice_num])
-        if self.current_tool is Tool.TRANSECT:
-            self.transect_pixmap_copy = self.canvas[self.slice_num].copy()
+
+            self.last_point = event.pos()
+            self.first_point = event.pos()
+
+            if self.current_tool == Tool.FILL:
+                self.pixel_fill((int(self.first_point.x()), int(self.first_point.y())))
+                self.draw_history.append(self.canvas[self.slice_num].copy())
+                self.redo_history.clear()
+                self.setPixmap(self.canvas[self.slice_num])
+
+            elif self.current_tool == Tool.TRANSECT:
+                # keep a clean copy for live preview during move
+                self.transect_pixmap_copy = self.canvas[self.slice_num].copy()
+
+            event.accept()
+        else:
+            event.ignore()
 
     def mouseMoveEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent):
-        if event.buttons() and (self.current_tool is Tool.DRAW or self.current_tool is Tool.CIRCLE):
+        left_drag = bool(event.buttons() & Qt.LeftButton)
+
+        if left_drag and self.current_tool in (Tool.DRAW, Tool.CIRCLE):
             self.check_if_drawn(self.slice_num)
-            painter = QPainter(self.canvas[self.slice_num])
-            current_point = event.position().toPoint()
-            
-            scene_pt = self.dicom_slices.mapToParent(event.pos())
-            img_ptf  = self.dicom_slices.mapFromParent(scene_pt)
-            img_pt   = img_ptf.toPointF()
-            self.mid_point.append(current_point)
-            painter.setCompositionMode(QPainter.CompositionMode_Source)
+
+            current_point = event.pos()
+            pm = self.canvas[self.slice_num]
+            painter = QPainter(pm)
+            painter.setRenderHint(QPainter.Antialiasing, True)
+            painter.setCompositionMode(QPainter.CompositionMode_Source)  # or SourceOver if you want alpha blending
             painter.setPen(self.pen)
-            if self.last_point:
-                painter.drawLine(self.last_point, img_pt)
+
+            if self.last_point is not None:
+                painter.drawLine(self.last_point, current_point)
             painter.end()
 
-            self.setPixmap(self.canvas[self.slice_num])
+            self.setPixmap(pm)  # refresh item
             self.last_point = current_point
             self.did_draw = True
-        if event.buttons() and self.current_tool is Tool.TRANSECT:
-            painter = QPainter(self.canvas[self.slice_num])
-            current_point = event.position().toPoint()
+            event.accept()
+            return
+
+        if left_drag and self.current_tool == Tool.TRANSECT:
+            # draw a *preview* line on a fresh copy each move
+            if self.transect_pixmap_copy is None:
+                self.transect_pixmap_copy = self.canvas[self.slice_num].copy()
+
+            preview = QPixmap(self.transect_pixmap_copy)
+            painter = QPainter(preview)
+            painter.setRenderHint(QPainter.Antialiasing, True)
             painter.setCompositionMode(QPainter.CompositionMode_Source)
             painter.setPen(self.t_pen)
-            painter.drawLine(self.first_point, current_point)
-            self.setPixmap(self.canvas[self.slice_num])
-            self.last_point = current_point
-            if self.last_point:
-                self.canvas[self.slice_num].fill(Qt.transparent)
+            painter.drawLine(self.first_point, event.pos())
+            painter.end()
+
+            self.setPixmap(preview)            # show preview
+            self.last_point = event.pos()
+            event.accept()
+            return
+
+        event.ignore()
 
     def mouseReleaseEvent(self, event: QtWidgets.QGraphicsSceneMouseEvent):
         drew_something = False
 
-        if self.current_tool is Tool.CIRCLE:
-            # close the stroke then fill interior
+        if self.current_tool == Tool.CIRCLE:
             self.pen_fill_tool(event)
             drew_something = True
             self.mid_point.clear()
@@ -161,21 +187,20 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
             drew_something = True
             self.did_draw = False
 
-        # If a stroke/fill occurred and it's not the TRANSECT overlay, enforce lock
-        if drew_something and self.current_tool is not Tool.TRANSECT:
+        if drew_something and self.current_tool != Tool.TRANSECT:
             self._enforce_lock_after_stroke()
-
-            # Save history AFTER enforcement so undo/redo has the corrected image
-            self.draw_history.append(self.canvas[self.slice_num].copy())  # CHANGED
+            self.draw_history.append(self.canvas[self.slice_num].copy())
             self.redo_history.clear()
+            self.setPixmap(self.canvas[self.slice_num])
 
+        if self.current_tool == Tool.TRANSECT and self.first_point and self.last_point:
+            self.transect_window((self.first_point, self.last_point))
+            # restore base (remove preview)
+            self.setPixmap(self.canvas[self.slice_num])
+            self.transect_pixmap_copy = None
 
-
-        # Transect handling (kept as-is, not subject to lock)
-        if self.current_tool is Tool.TRANSECT:
-            point_values = (self.first_point,self.last_point)
-            self.transect_window(point_values)
         self.last_point = None
+        event.accept()
 
     def check_if_drawn(self, current_slice):
         """Checks if the pixmap has been drawn on, if yes then it gets added to the slice"""
@@ -243,11 +268,11 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
         """Changes the slide 1 up or 1 down and copies the slide"""
         if up_or_down:
             self.canvas[self.slice_num+1] = self.canvas[self.slice_num].copy()
-            self.dicom_slices.slider.setValue(self.dicom_slices.slider.value() +1)
+            self.dicom_slider.setValue(self.dicom_slider.value() +1)
             self.check_if_drawn(self.slice_num)
         elif not up_or_down and self.slice_num > 1:
             self.canvas[self.slice_num-1] = self.canvas[self.slice_num].copy()
-            self.dicom_slices.slider.setValue(self.dicom_slices.slider.value() -1)
+            self.dicom_slider.setValue(self.dicom_slider.value() -1)
             self.check_if_drawn(self.slice_num)
         self.ds_is_active = False
     def erase_roi(self):

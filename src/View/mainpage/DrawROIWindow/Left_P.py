@@ -12,7 +12,7 @@ class LeftPannel(QtWidgets.QWidget):
         self.parent = parent
         self.pen = pen
         self.last_colour = QColor("blue")
-
+        print("3")
         self.set_layout()
 
     def set_layout(self):
@@ -84,6 +84,7 @@ class LeftPannel(QtWidgets.QWidget):
         
     def brush_tool(self):
         """This fucntion changes the draw tool to a brush"""
+        print("active")
         self.canvas_label.set_tool(1)
         self.canvas_label.pen.setColor(self.last_colour)
         cursor = self.make_circle_cursor(self.canvas_label.pen.width(), self.last_colour)
