@@ -2,7 +2,7 @@ from PySide6 import QtWidgets
 from typing import Optional
 from PySide6.QtWidgets import QGroupBox, QGridLayout, QPushButton, QButtonGroup
 from PySide6.QtGui import QPixmap, QImage, QMouseEvent, QPixmap, QPainter, QPen, QColor, QAction, QBrush,QCursor
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Slot, Signal
 
 class LeftPannel(QtWidgets.QWidget):
     """Holds the left pannels buttons"""
@@ -37,6 +37,7 @@ class LeftPannel(QtWidgets.QWidget):
         save = QPushButton("Save")
         fill = QPushButton("Fill")
         fill.setCheckable(True)
+        roi_name = QPushButton("ROI_Name")
         erase_dag = QPushButton("Erase DAGs")
         self.button_group.addButton(brush)
         self.button_group.addButton(pen)
@@ -95,6 +96,10 @@ class LeftPannel(QtWidgets.QWidget):
         self.canvas_label.set_tool(3)
         self.canvas_label.setCursor(Qt.CrossCursor)
 
+    def roi_b(self):
+        """Selects the ROI"""
+        
+
 
     def eraser_roi_tool(self):
         """This fucntion changes the draw tool to the eraser ROI tool"""
@@ -123,7 +128,8 @@ class LeftPannel(QtWidgets.QWidget):
 
     def save_button(self):
         """This fucntion saves the ROI drawing"""
-        print("Saved!!!!!! But not really........")
+        self.canvas_label.save_roi()
+        self.parent.close_roi_window()
 
     def fill_tool(self):
         """Fucntion for the fill tool"""

@@ -4,6 +4,7 @@ from src.View.mainpage.DicomGraphicsScene import GraphicsScene
 from src.Model.PatientDictContainer import PatientDictContainer
 from src.constants import INITIAL_ONE_VIEW_ZOOM
 from src.Controller.PathHandler import data_path
+from src.Model.ROI import calc_roi_polygon
 
 class CustomGraphicsView(QtWidgets.QGraphicsView):
     def __init__(self, parent=None):
@@ -174,8 +175,15 @@ class DicomView(QtWidgets.QWidget):
         color.setAlpha(roi_opacity)
         pen_color = QtGui.QColor(color.red(), color.green(), color.blue())
         pen = self.get_qpen(pen_color, roi_line, line_width)
-        for i in range(len(polygons)):
-            self.scene.addPolygon(polygons[i], pen, QtGui.QBrush(color))
+        path = QtGui.QPainterPath()
+        path.setFillRule(QtCore.Qt.OddEvenFill)
+        for i,poly in enumerate(polygons):
+            path.addPolygon(poly)
+        new_polygon = QtWidgets.QGraphicsPathItem(path)
+        new_polygon.setBrush(QtGui.QBrush(color))
+        new_polygon.setPen(pen)
+        self.scene.addItem(new_polygon)
+         
 
     def get_qpen(self, color, style=1, widthF=1.):
         """

@@ -10,8 +10,10 @@ def connectSaveROIProgress(window, roi_list, rtss, new_roi_name,
     A popup window that modifies the RTSTRUCT and tells the user
     that processing is happening.
     """
+    print("God trying to be good")
     progress_window = SaveROIProgressWindow(window, QtCore.Qt.WindowTitleHint)
     progress_window.signal_roi_saved.connect(roi_saved_signal)
+    print("did do")
     progress_window.start_saving(rtss, new_roi_name, roi_list)
     progress_window.show()
 

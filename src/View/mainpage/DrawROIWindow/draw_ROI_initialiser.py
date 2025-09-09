@@ -1,6 +1,6 @@
 from PySide6 import QtWidgets, QtGui, QtCore
 from PySide6.QtGui import QPen, QKeyEvent
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from src.View.mainpage.DrawROIWindow.Toolbar import CutsomToolbar
 from src.View.mainpage.DrawROIWindow.Left_P import LeftPannel
 from src.View.mainpage.DrawROIWindow.Canvas import CanvasLabel
@@ -8,11 +8,12 @@ from src.View.mainpage.DrawROIWindow.Units_Box import UnitsBox
 from src.View.mainpage.DicomAxialView import DicomAxialView
 from src.Model.PatientDictContainer import PatientDictContainer
 from src.View.mainpage.DrawROIWindow.scroll_loader_4_dicom_image import Scroll_Wheel
+from src.View.mainpage.DrawROIWindow.SelectROIPopUp import SelectROIPopUp
 
 #Sourcery.ai Is this true
 class RoiInitialiser(QtWidgets.QWidget):
     """Class to hold the draw ROI features"""
-    def __init__(self, host_main_window: QtWidgets.QMainWindow, rois, dataset_rtss, parent=None):
+    def __init__(self, host_main_window: QtWidgets.QMainWindow, rois, dataset_rtss,signal_roi_drawn,close_window_signal, parent=None):
         super().__init__(parent)
         self.host = host_main_window
         self.central = QtWidgets
@@ -21,6 +22,7 @@ class RoiInitialiser(QtWidgets.QWidget):
         self.get_pixmaps()
         
         self.setWindowTitle("ROI Prototype")
+        self.close_window_signal = close_window_signal
 
         # Temporary hard coded directory path
         self.last_point = None
@@ -48,7 +50,7 @@ class RoiInitialiser(QtWidgets.QWidget):
         self.scene.addItem(self.image_item)
         self.scene.setSceneRect(QtCore.QRectF(QtCore.QPointF(0,0), self.image.size()))
 
-        self.canvas_labal = CanvasLabel(self.pen,self.scroller)
+        self.canvas_labal = CanvasLabel(self.pen,self.scroller,dataset_rtss, signal_roi_drawn)
         self.scene.addItem(self.canvas_labal)
         self.scene.setSceneRect(self.image_item.boundingRect())
 
@@ -78,6 +80,7 @@ class RoiInitialiser(QtWidgets.QWidget):
 
         self.units_box = UnitsBox(self, self.pen, self.canvas_labal)
         self.left_label = LeftPannel(self, self.pen, self.canvas_labal)
+        self.rtstuct = SelectROIPopUp()
 
         # Creates a layout for the tools to fit inside
         tools_layout = QtWidgets.QVBoxLayout()
@@ -85,6 +88,7 @@ class RoiInitialiser(QtWidgets.QWidget):
         tools_container.setLayout(tools_layout)
         tools_layout.addWidget(self.left_label)
         tools_layout.addWidget(self.units_box)
+        
 
 
         # Create a layout to hold the left panel and the main canvas
@@ -134,3 +138,12 @@ class RoiInitialiser(QtWidgets.QWidget):
         """Changes the image according to the value"""
         image = self.display_pixmaps[self.scroller.value()]
         self.image_item.setPixmap(image)
+
+    def close_roi_window(self):
+        """Closes the roi window"""
+        print("apples")
+        self.close()
+        self._toolbar.close()
+        self.close_window_signal.emit()
+
+        

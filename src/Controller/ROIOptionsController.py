@@ -51,14 +51,18 @@ class RoiDrawOptions(QtWidgets.QMainWindow):
     """
     Create the ROI Draw Options class based on the UI from the file in
     View/ROI Draw Option
-    """
+    """       
+    signal_roi_drawn = QtCore.Signal(tuple)
+    signal_draw_roi_closed = QtCore.Signal()
     def __init__(self, rois, dataset_rtss, parent=None):
+ 
         super().__init__(parent)
-        self.ui = RoiInitialiser(self, rois, dataset_rtss, parent=self)
+        self.ui = RoiInitialiser(self, rois,dataset_rtss,self.signal_roi_drawn,self.signal_draw_roi_closed,parent =self)
         #Connecting slots & signals
         self.ui._toolbar.colour.connect(self.ui.left_label.update_colour)
         self.setCentralWidget(self.ui)
         self.addToolBar(self.ui.build_toolbar())
+        
 
     #Code for dicom toolbar events
     def onZoomInClicked(self):
@@ -72,6 +76,9 @@ class RoiDrawOptions(QtWidgets.QMainWindow):
         self.ui.dicom_viewer.zoom /= 1.05
         self.ui.dicom_viewer.update_view(zoom_change=True)
         self.ui.apply_zoom()
+    def close_window(self):
+        """Closes the window"""
+        self.ui.close()
 
 
 
@@ -80,6 +87,8 @@ class ROIDrawOption:
     The class that will be called by the main page to access the ROI
     Options controller
     """
+    signal_roi_drawn = QtCore.Signal(tuple)
+    signal_draw_roi_closed = QtCore.Signal()
 
     def __init__(self, structure_modified_function, remove_draw_roi_instance):
         super(ROIDrawOption, self).__init__()
@@ -96,7 +105,10 @@ class ROIDrawOption:
         dataset_rtss = patient_dict_container.get("dataset_rtss")
 
         if not hasattr(self, "draw_window"):
-            self.draw_window = RoiDrawOptions(rois, dataset_rtss)
+            self.draw_window = RoiDrawOptions(rois,dataset_rtss)
+            self.draw_window.signal_roi_drawn.connect(
+                self.structure_modified_function)
+            self.draw_window.signal_draw_roi_closed.connect(self.remove_roi_draw_instance)
 
         return self.draw_window
 

@@ -11,12 +11,18 @@ from collections import deque
 from enum import Enum, auto
 from PySide6 import QtWidgets
 from PySide6.QtGui import QPixmap, QImage, QPainter, QPen, QColor
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Slot, Signal
 import numpy as np
 from src.Model.PatientDictContainer import PatientDictContainer
 from src.View.mainpage.DrawROIWindow.Transect_Window import TransectWindow
 from src.View.mainpage.DrawROIWindow.Copy_Roi import CopyROI
-
+from src.View.mainpage.DrawROIWindow.ConvertToDicom import ConvertPixmapToDicom
+from src.View.util.ProgressWindowHelper import connectSaveROIProgress
+from pathlib import Path
+from src.Controller.PathHandler import data_path
+from src.Model import ROI
+import pydicom
+import time
 
 class Tool(Enum):
     """Holds the switch for the tools"""
@@ -27,7 +33,8 @@ class Tool(Enum):
 
 class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
     """Class for the drawing funnction, creates an invisable layer projected over a dicom image"""
-    def __init__(self, pen: QPen, slider):
+    unalive_window = Signal(QColor)
+    def __init__(self, pen: QPen, slider, rstt, signal_roi_drawn):
         super().__init__()
         self.pen = pen #the pen object that is used to draw on the canvas, can be changed in other classes
         self.last_point = None #becomes a x,y point
@@ -94,8 +101,10 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
         self.min_range = 0
         self.max_range = 6000
 
-        self.has_been_draw_on = {int} #Used to track the slices that have been draw on
-
+        self.has_been_draw_on = [] #Used to track the slices that have been draw on 
+        self.rstt = rstt
+        self.signal_roi_drawn = signal_roi_drawn
+        self.roi_name = None
     def set_tool(self, tool_num):
         """Sets the tool"""
         self.current_tool = Tool(tool_num)
@@ -196,12 +205,13 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
             self.transect_pixmap_copy = None
 
         self.last_point = None
+        print(self.has_been_draw_on)
         event.accept()
 
     def check_if_drawn(self, current_slice):
         """Checks if the pixmap has been drawn on, if yes then it gets added to the slice"""
         if current_slice not in self.has_been_draw_on:
-                self.has_been_draw_on.add(current_slice)
+                self.has_been_draw_on.append(current_slice)
     #Chat gpt redition of breseham algorithm
     def _iter_line_pixels(self, x0: int, y0: int, x1: int, y1: int):
         """Bresenham integer line iterator: yields (x, y) for every pixel crossed."""
@@ -472,6 +482,31 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
 
         self.setPixmap(self.canvas[self.slice_num])
  #end of AI gen
+
+    def save_roi(self):
+        """Saves the roi to the thing"""
+        pending_roi_list = []
+        for i in self.has_been_draw_on:  # iterate all slices you drew on
+            print(i)
+            converter = ConvertPixmapToDicom(self.dicom_data[i], self.canvas[i])
+            slice_roi_list = converter.start(include_holes=True, simplify_tol_px=1.0)
+            pending_roi_list.extend(slice_roi_list)
+        path = self.patient_dict_container.path
+        dir = Path(path)
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        out_path = dir / f"RTSTRUCT_{stamp}.dcm" 
+        new_rtss = ROI.create_roi(self.rstt,"applebbbbbbbbb",pending_roi_list,"applebbbbbbbbb","PATIENT")
+        pydicom.write_file(str(out_path), new_rtss, write_like_original=True)
+
+    def roi_saved(self, new_rtss):
+        """
+            Function to call save ROI and display progress
+        """
+        self.signal_roi_drawn.emit((new_rtss, {"draw": "new-data-set"}))
+    
+        
+        
+        
 
 #This section contain all of the slots and connections that communicate with methods in other files
     def change_layout_bool(self):
