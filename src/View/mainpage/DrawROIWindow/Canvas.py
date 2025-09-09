@@ -62,7 +62,7 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
         self.base_canvas = []
         self.scale_factor = 1.0
 
-        for _ in range(self.number_of_slices):
+        for _ in range(self.number_of_slices+1):
             self.canvas.append(self.gen_pix_map.copy())
             self.base_canvas.append(self.gen_pix_map.copy())
         self.setPixmap(self.canvas[self.slice_num]) #sets the current pixmap to the first slice

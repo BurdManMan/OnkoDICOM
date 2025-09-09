@@ -54,7 +54,7 @@ class UnitsBox(QtWidgets.QLabel):
         self.transparency_slider = QSlider(Qt.Horizontal)
         self.transparency_slider.setRange(1,100)
         self.transparency_slider.valueChanged.connect(self.update_transparency)
-        self.transparency_slider.setValue(80)
+        self.transparency_slider.setValue(50)
         
         #Ading the them to the layout
         layout.addWidget(pen_size,0,0)
