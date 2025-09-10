@@ -11,7 +11,6 @@ class UnitsBox(QtWidgets.QLabel):
         self.parent = parent
         self.pen = pen
         self.text_entry_setup()
-        print("3")
 
 
     def text_entry_setup(self):

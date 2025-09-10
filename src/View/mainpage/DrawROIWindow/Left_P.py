@@ -20,7 +20,7 @@ class LeftPannel(QtWidgets.QWidget):
         #Initalises the buttons
         self.button_group = QButtonGroup()
         self.button_group.setExclusive(True)
-        self._grid_group_box = QGroupBox("Tools")
+        self._grid_group_box = QGroupBox()
         layout = QGridLayout()
         brush = QPushButton("Brush")
         brush.setCheckable(True)
@@ -96,11 +96,6 @@ class LeftPannel(QtWidgets.QWidget):
         self.canvas_label.set_tool(3)
         self.canvas_label.setCursor(Qt.CrossCursor)
 
-    def roi_b(self):
-        """Selects the ROI"""
-        
-
-
     def eraser_roi_tool(self):
         """This fucntion changes the draw tool to the eraser ROI tool"""
         self.canvas_label.set_tool(1)
@@ -129,7 +124,7 @@ class LeftPannel(QtWidgets.QWidget):
     def save_button(self):
         """This fucntion saves the ROI drawing"""
         self.canvas_label.save_roi()
-        self.parent.close_roi_window()
+        #self.parent.close_roi_window()
 
     def fill_tool(self):
         """Fucntion for the fill tool"""

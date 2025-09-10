@@ -3,6 +3,7 @@ import logging
 from src.View.ImageFusion.UITransferROIWindow import UITransferROIWindow
 from src.View.mainpage.DeleteROIWindow import *
 from src.View.mainpage.DrawROIWindow.draw_ROI_initialiser import RoiInitialiser
+from src.View.mainpage.DrawROIWindow.Save_To_RTSS import SaveROI
 from src.View.mainpage.ManipulateROIWindow import *
 
 
@@ -54,33 +55,42 @@ class RoiDrawOptions(QtWidgets.QMainWindow):
     """       
     signal_roi_drawn = QtCore.Signal(tuple)
     signal_draw_roi_closed = QtCore.Signal()
+
     def __init__(self, rois, dataset_rtss, parent=None):
  
         super().__init__(parent)
         self.ui = RoiInitialiser(self, rois,dataset_rtss,self.signal_roi_drawn,self.signal_draw_roi_closed,parent =self)
         #Connecting slots & signals
         self.ui._toolbar.colour.connect(self.ui.left_label.update_colour)
+        self.ui.ROI_button.roi_name_emit.connect(self.ui.canvas_labal.set_roi_name)
+        
         self.setCentralWidget(self.ui)
         self.addToolBar(self.ui.build_toolbar())
+        self.zoom_variable = 1.00
         
 
     #Code for dicom toolbar events
     def onZoomInClicked(self):
         """Handles the event of the zoom in button"""
-        self.ui.dicom_viewer.zoom *= 1.05
-        self.ui.dicom_viewer.update_view(zoom_change=True)
-        self.ui.apply_zoom()
+        self.zoom_variable *= 1.05
+        self.apply_zoom()
     
     def onZoomOutClicked(self):
         """Handles the event of the zoom out button"""
-        self.ui.dicom_viewer.zoom /= 1.05
-        self.ui.dicom_viewer.update_view(zoom_change=True)
-        self.ui.apply_zoom()
+        self.zoom_variable /= 1.05
+        self.apply_zoom()
+    
+    def apply_zoom(self):
+        """Zooms the canvas in or out depending"""
+        self.ui.view.setTransform(QtGui.QTransform().scale(self.zoom_variable, self.zoom_variable))
+
     def close_window(self):
         """Closes the window"""
         self.ui.close()
+        self.signal_draw_roi_closed.emit()
 
-
+    def update_draw_roi_pixmaps(self):
+        print("Screeeeeem")
 
 class ROIDrawOption:
     """
@@ -228,3 +238,5 @@ class ROITransferOption:
             signal_roi_transferred_to_fixed_container \
             .connect(self.fixed_dict_structure_modified_function)
         self.roi_transfer_option_pop_up_window.show()
+
+    

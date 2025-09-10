@@ -8,21 +8,16 @@ mousePressEvent - handles the mouse press event.
                     4th if the transect tool code runs the transect tool code
 """
 from collections import deque
+import pydicom
 from enum import Enum, auto
 from PySide6 import QtWidgets
 from PySide6.QtGui import QPixmap, QImage, QPainter, QPen, QColor
-from PySide6.QtCore import Qt, Slot, Signal
+from PySide6.QtCore import Qt, Slot, Signal, QObject
 import numpy as np
 from src.Model.PatientDictContainer import PatientDictContainer
 from src.View.mainpage.DrawROIWindow.Transect_Window import TransectWindow
 from src.View.mainpage.DrawROIWindow.Copy_Roi import CopyROI
-from src.View.mainpage.DrawROIWindow.ConvertToDicom import ConvertPixmapToDicom
-from src.View.util.ProgressWindowHelper import connectSaveROIProgress
-from pathlib import Path
-from src.Controller.PathHandler import data_path
-from src.Model import ROI
-import pydicom
-import time
+from src.View.mainpage.DrawROIWindow.Save_To_RTSS import SaveROI
 
 class Tool(Enum):
     """Holds the switch for the tools"""
@@ -30,10 +25,13 @@ class Tool(Enum):
     FILL     = auto()
     CIRCLE   = auto()
     TRANSECT = auto()
+class Emitter(QObject):
+    m_window = Signal()
+
 
 class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
     """Class for the drawing funnction, creates an invisable layer projected over a dicom image"""
-    unalive_window = Signal(QColor)
+
     def __init__(self, pen: QPen, slider, rstt, signal_roi_drawn):
         super().__init__()
         self.pen = pen #the pen object that is used to draw on the canvas, can be changed in other classes
@@ -105,6 +103,7 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
         self.rstt = rstt
         self.signal_roi_drawn = signal_roi_drawn
         self.roi_name = None
+        self.emitter = Emitter()
     def set_tool(self, tool_num):
         """Sets the tool"""
         self.current_tool = Tool(tool_num)
@@ -484,29 +483,15 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
  #end of AI gen
 
     def save_roi(self):
-        """Saves the roi to the thing"""
-        pending_roi_list = []
-        for i in self.has_been_draw_on:  # iterate all slices you drew on
-            print(i)
-            converter = ConvertPixmapToDicom(self.dicom_data[i], self.canvas[i])
-            slice_roi_list = converter.start(include_holes=True, simplify_tol_px=1.0)
-            pending_roi_list.extend(slice_roi_list)
-        path = self.patient_dict_container.path
-        dir = Path(path)
-        stamp = time.strftime("%Y%m%d-%H%M%S")
-        out_path = dir / f"RTSTRUCT_{stamp}.dcm" 
-        new_rtss = ROI.create_roi(self.rstt,"applebbbbbbbbb",pending_roi_list,"applebbbbbbbbb","PATIENT")
-        pydicom.write_file(str(out_path), new_rtss, write_like_original=True)
-
-    def roi_saved(self, new_rtss):
         """
             Function to call save ROI and display progress
         """
-        self.signal_roi_drawn.emit((new_rtss, {"draw": "new-data-set"}))
-    
-        
-        
-        
+        if self.roi_name is None:
+            print("error?????")
+            self.emitter.m_window.emit()
+        else:
+            SaveROI(self.dicom_data, self.canvas, self.rstt, self.has_been_draw_on,self.roi_name)
+            #self.signal_roi_drawn.emit((new_rtss, {"draw": "new-data-set"}))
 
 #This section contain all of the slots and connections that communicate with methods in other files
     def change_layout_bool(self):
@@ -548,3 +533,8 @@ class CanvasLabel(QtWidgets.QGraphicsPixmapItem):
         self.canvas[self.slice_num] = holder
         self.setPixmap(self.canvas[self.slice_num])
         self.ds_is_active = False
+    
+    @Slot(str)
+    def set_roi_name(self,v):
+        """Sets the roi name that is emmited from the roi select box"""
+        self.roi_name = v

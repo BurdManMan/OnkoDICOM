@@ -4,7 +4,6 @@ from src.View.mainpage.DicomGraphicsScene import GraphicsScene
 from src.Model.PatientDictContainer import PatientDictContainer
 from src.constants import INITIAL_ONE_VIEW_ZOOM
 from src.Controller.PathHandler import data_path
-from src.Model.ROI import calc_roi_polygon
 
 class CustomGraphicsView(QtWidgets.QGraphicsView):
     def __init__(self, parent=None):
