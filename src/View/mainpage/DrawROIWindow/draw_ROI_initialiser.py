@@ -133,7 +133,7 @@ class RoiInitialiser(QtWidgets.QWidget):
             j +=1
     def change_image(self, v):
         """Changes the image according to the value"""
-        image = self.display_pixmaps[self.scroller.value()]
+        image = self.display_pixmaps[v]
         self.image_item.setPixmap(image)
 
     def close_roi_window(self):
